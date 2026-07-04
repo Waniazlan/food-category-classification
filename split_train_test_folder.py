@@ -1,63 +1,114 @@
-import os
-from collections import defaultdict
-import shutil, sys 
+import argparse
+import shutil
+from pathlib import Path
 
-def copytree(src, dst, symlinks = False, ignore = None):
-    if not os.path.exists(dst):
-        os.makedirs(dst)
-        shutil.copystat(src, dst)
-    lst = os.listdir(src)
-    if ignore:
-        excl = ignore(src, lst)
-        lst = [x for x in lst if x not in excl]
-    for item in lst:
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if symlinks and os.path.islink(s):
-            if os.path.lexists(d):
-                os.remove(d)
-            os.symlink(os.readlink(s), d)
-            try:
-                st = os.lstat(s)
-                mode = stat.S_IMODE(st.st_mode)
-                os.lchmod(d, mode)
-            except:
-                pass # lchmod not available
-        elif os.path.isdir(s):
-            copytree(s, d, symlinks, ignore)
-        else:
-            shutil.copy2(s, d)
 
-def generate_dir_file_map(path):
-    dir_files = defaultdict(list)
-    with open(path, 'r') as txt:
-        files = [l.strip() for l in txt.readlines()]
-        for f in files:
-            dir_name, id = f.split('/')
-            dir_files[dir_name].append(id + '.jpg')
-    return dir_files
+DEFAULT_CLASSES = [
+    "apple_pie",
+    "cheesecake",
+    "chicken_curry",
+    "fried_rice",
+    "pizza",
+]
 
-def ignore_train(d, filenames):
-    print(d)
-    subdir = d.split('/')[-1]
-    to_ignore = train_dir_files[subdir]
-    return to_ignore
 
-def ignore_test(d, filenames):
-    print(d)
-    subdir = d.split('/')[-1]
-    to_ignore = test_dir_files[subdir]
-    return to_ignore
+def read_split_file(path):
+    class_to_images = {}
+    with path.open("r", encoding="utf-8") as file:
+        for line in file:
+            class_name, image_id = line.strip().split("/")
+            class_to_images.setdefault(class_name, []).append(f"{image_id}.jpg")
+    return class_to_images
 
-if len(sys.argv) > 1:
-    root_path = sys.argv[1] +'/'
-else:
-    root_path =''
 
-if not os.path.isdir(root_path+'food-101/test') or not os.path.isdir(root_path+'food-101/train'):
-    train_dir_files = generate_dir_file_map('food-101/meta/train.txt')
-    test_dir_files = generate_dir_file_map('food-101/meta/test.txt')
-    copytree('food-101/images',root_path+'food-101/test', ignore=ignore_train)
-    copytree('food-101/images', root_path+'food-101/train', ignore=ignore_test)
-else:
-    print('Train/Test files already copied into separate folders.')
+def copy_class_images(source_dir, destination_dir, class_name, filenames, limit=None):
+    class_source = source_dir / class_name
+    class_destination = destination_dir / class_name
+    class_destination.mkdir(parents=True, exist_ok=True)
+
+    selected_files = filenames[:limit] if limit else filenames
+    copied = 0
+    for filename in selected_files:
+        source_file = class_source / filename
+        if source_file.exists():
+            shutil.copy2(source_file, class_destination / filename)
+            copied += 1
+
+    return copied
+
+
+def prepare_subset(food101_dir, output_dir, classes, train_limit, test_limit):
+    images_dir = food101_dir / "images"
+    meta_dir = food101_dir / "meta"
+
+    if not images_dir.is_dir() or not meta_dir.is_dir():
+        raise FileNotFoundError(
+            "Expected Food-101 dataset at food-101/images and food-101/meta. "
+            "Download and extract food-101.tar.gz first."
+        )
+
+    train_map = read_split_file(meta_dir / "train.txt")
+    test_map = read_split_file(meta_dir / "test.txt")
+
+    for split in ("train", "test"):
+        (output_dir / split).mkdir(parents=True, exist_ok=True)
+
+    for class_name in classes:
+        if class_name not in train_map or class_name not in test_map:
+            raise ValueError(f"Class '{class_name}' is not present in Food-101 metadata.")
+
+        train_count = copy_class_images(
+            images_dir,
+            output_dir / "train",
+            class_name,
+            train_map[class_name],
+            train_limit,
+        )
+        test_count = copy_class_images(
+            images_dir,
+            output_dir / "test",
+            class_name,
+            test_map[class_name],
+            test_limit,
+        )
+        print(f"{class_name}: {train_count} train, {test_count} test images")
+
+    print(f"\nPrepared dataset at: {output_dir}")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Create a smaller train/test Food-101 subset for CNN classification."
+    )
+    parser.add_argument("--source", default="food-101", help="Path to extracted Food-101 dataset.")
+    parser.add_argument("--output", default="food-5", help="Output directory for the 5-class dataset.")
+    parser.add_argument(
+        "--classes",
+        nargs="+",
+        default=DEFAULT_CLASSES,
+        help="Food-101 class names to include.",
+    )
+    parser.add_argument(
+        "--train-limit",
+        type=int,
+        default=300,
+        help="Maximum training images per class. Use 0 for all available training images.",
+    )
+    parser.add_argument(
+        "--test-limit",
+        type=int,
+        default=100,
+        help="Maximum test images per class. Use 0 for all available test images.",
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    prepare_subset(
+        food101_dir=Path(args.source),
+        output_dir=Path(args.output),
+        classes=args.classes,
+        train_limit=args.train_limit or None,
+        test_limit=args.test_limit or None,
+    )

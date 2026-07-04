@@ -1,102 +1,132 @@
-# 101-Food Classification using Transfer Learning with InceptionV3
-[![Accuracy](https://img.shields.io/badge/accuracy-87%2E31%25-green.svg)](https://github.com/DucLeTrong/food101-classification)
+# 5-Class Food Image Classification CNN
 
-## About data set
+This project trains a convolutional neural network with TensorFlow/Keras on a smaller
+5-class subset of the Food-101 image dataset.
 
-Food 101 is a labelled data set with 101 different food classes. Each food class contains 1000 images. Using the data provided,  a deep learning model built on Keras/TensorFlow is trained to classify 101 classes in Food 101 dataset.
+Default classes:
 
+- `apple_pie`
+- `cheesecake`
+- `chicken_curry`
+- `fried_rice`
+- `pizza`
 
-[Data available here](https://www.kaggle.com/dansbecker/food-101/home)
+The project includes:
 
-## Prepare data set
-- Download data set
-```
->> wget http://data.vision.ee.ethz.ch/cvl/food-101.tar.gz
->> tar -xvf /content/drive/My\ Drive/project2/food-101.tar.gz > /dev/null 2>&1
-```
-- Split training and test data set
+- Dataset preparation for training and testing
+- CNN model training
+- Test-set evaluation
+- Training history plot
+- Confusion matrix
+- Per-class precision, recall, and F1-score metrics
+- Local web GUI for image prediction
 
-Images are split to train and test set with 750 and 250 images per class respectively. 
-```
->> python3 split_train_test_folder.py 
-```
-## Training 
-```
->> python3 train.py
-```
-## Visulize the result
+## 1. Create Python Environment
 
-### Training data
-```python
-root_dir = 'food-101/images/'
-rows = 17
-cols = 6
-fig, ax = plt.subplots(rows, cols, frameon=False, figsize=(15, 25))
-fig.suptitle('Random Image from Each Food Class', fontsize=20)
-sorted_food_dirs = sorted(os.listdir(root_dir))
-for i in range(rows):
-    for j in range(cols):
-        try:
-            food_dir = sorted_food_dirs[i*cols + j]
-        except:
-            break
-        all_files = os.listdir(os.path.join(root_dir, food_dir))
-        rand_img = np.random.choice(all_files)
-        img = plt.imread(os.path.join(root_dir, food_dir, rand_img))
-        ax[i][j].imshow(img)
-        ec = (0, .6, .1)
-        fc = (0, .7, .2)
-        ax[i][j].text(0, -20, food_dir, size=10, rotation=0,
-                ha="left", va="top", 
-                bbox=dict(boxstyle="round", ec=ec, fc=fc))
-plt.setp(ax, xticks=[], yticks=[])
-plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+TensorFlow does not usually support the newest Python versions immediately. Use
+Python 3.10, 3.11, or 3.12.
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
+## 2. Download Dataset
 
-![png](images/visulize_result_4_0.png)
+Download and extract Food-101:
 
-### Model accuracy 
-
-![png](images/visulize_result_22_0.png)
-
-
-### Some prediction with test data set
-```python
-root_dir = 'food-101/images/'
-rows = 10
-cols = 5
-fig, ax = plt.subplots(rows, cols, frameon=False, figsize=(15, 25))
-fig.suptitle('Random Image Predict', fontsize=20)
-sorted_food_dirs = sorted(os.listdir(root_dir))
-
-for i in range(rows):
-    for j in range(cols):
-        try:
-            food_dir = sorted_food_dirs[i*cols + j]
-        except:
-            break
-        all_files = os.listdir(os.path.join(root_dir, food_dir))
-        rand_img = np.random.choice(all_files)
-        img = plt.imread(os.path.join(root_dir, food_dir, rand_img))
-        while (np.array(img).shape[1] < 299 or np.array(img).shape[0] < 299):
-            rand_img = np.random.choice(all_files)
-            img = plt.imread(os.path.join(root_dir, food_dir, rand_img))
-#             print('a')
-        preds = predict_10_crop(np.array(img), 0)[0]
-    # print(preds)
-        best_pred = collections.Counter(preds).most_common(1)[0][0]
-        pred = ix_to_class[best_pred]
-        ax[i][j].imshow(img)
-        ec = (0, .6, .1)
-        fc = (0, .7, .2)
-        ax[i][j].text(0, -20, "label: "+food_dir+ '\n'+'pred: ' + pred , size=10, rotation=0,
-                ha="left", va="top", 
-                bbox=dict(boxstyle="round", ec=ec, fc=fc))
-plt.setp(ax, xticks=[], yticks=[])
-plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+```bash
+curl -L -o food-101.tar.gz http://data.vision.ee.ethz.ch/cvl/food-101.tar.gz
+tar -xzf food-101.tar.gz
 ```
 
+After extraction, the folder should look like:
 
-![png](images/visulize_result_35_0.png)
+```text
+food-101/
+  images/
+  meta/
+```
 
+## 3. Prepare 5-Class Train/Test Dataset
+
+```bash
+python split_train_test_folder.py
+```
+
+This creates:
+
+```text
+food-5/
+  train/
+    apple_pie/
+    cheesecake/
+    chicken_curry/
+    fried_rice/
+    pizza/
+  test/
+    apple_pie/
+    cheesecake/
+    chicken_curry/
+    fried_rice/
+    pizza/
+```
+
+By default, it copies 300 training images and 100 test images per class. To use
+more images:
+
+```bash
+python split_train_test_folder.py --train-limit 750 --test-limit 250
+```
+
+To choose different Food-101 classes:
+
+```bash
+python split_train_test_folder.py --classes sushi ramen pizza steak tacos
+```
+
+## 4. Train and Evaluate
+
+```bash
+python train.py
+```
+
+Useful faster test run:
+
+```bash
+python train.py --epochs 3 --image-size 128
+```
+
+The training script automatically evaluates on the test dataset and writes results
+to `outputs/`.
+
+## 5. Run the GUI
+
+After training finishes, start the local prediction app:
+
+```bash
+streamlit run app.py
+```
+
+The app opens in your browser. Upload a food image and click `Predict`.
+
+## Outputs
+
+After training, check:
+
+```text
+outputs/
+  best_model.keras
+  final_model.keras
+  training_log.csv
+  training_history.png
+  confusion_matrix.png
+  confusion_matrix.csv
+  classification_metrics.csv
+  class_names.json
+```
+
+`confusion_matrix.png` is the visual confusion matrix. `classification_metrics.csv`
+contains per-class precision, recall, F1-score, support, and overall accuracy.

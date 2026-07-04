@@ -1,1 +1,13 @@
 .ipynb_checkpoints
+__pycache__/
+*.pyc
+.venv/
+
+food-101/
+food-5/
+food-101.tar.gz
+outputs/
+*.keras
+*.h5
+*.hdf5
+*.log

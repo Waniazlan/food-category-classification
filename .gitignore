@@ -6,10 +6,11 @@ __pycache__/
 food-101/
 food-5/
 food-101.tar.gz
-outputs/
+outputs/*
+!outputs/
 *.keras
 *.h5
 *.hdf5
 *.log
-*!outputs/final_model.keras
-*!outputs/class_names.json
+!outputs/final_model.keras
+!outputs/class_names.json

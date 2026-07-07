@@ -11,3 +11,5 @@ outputs/
 *.h5
 *.hdf5
 *.log
+*!outputs/final_model.keras
+*!outputs/class_names.json

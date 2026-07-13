@@ -14,43 +14,73 @@ from utils import (
 )
 
 
-def build_cnn(input_shape, num_classes):
+def build_mobilenetv2(input_shape, num_classes):
     data_augmentation = tf.keras.Sequential(
         [
             tf.keras.layers.RandomFlip("horizontal"),
-            tf.keras.layers.RandomRotation(0.08),
-            tf.keras.layers.RandomZoom(0.1),
+            tf.keras.layers.RandomRotation(0.12),
+            tf.keras.layers.RandomZoom(0.18),
+            tf.keras.layers.RandomTranslation(0.08, 0.08),
+            tf.keras.layers.RandomContrast(0.12),
         ],
         name="data_augmentation",
     )
 
-    model = tf.keras.Sequential(
-        [
-            tf.keras.layers.Input(shape=input_shape),
-            data_augmentation,
-            tf.keras.layers.Rescaling(1.0 / 255),
-            tf.keras.layers.Conv2D(32, 3, padding="same", activation="relu"),
-            tf.keras.layers.MaxPooling2D(),
-            tf.keras.layers.Conv2D(64, 3, padding="same", activation="relu"),
-            tf.keras.layers.MaxPooling2D(),
-            tf.keras.layers.Conv2D(128, 3, padding="same", activation="relu"),
-            tf.keras.layers.MaxPooling2D(),
-            tf.keras.layers.Conv2D(128, 3, padding="same", activation="relu"),
-            tf.keras.layers.MaxPooling2D(),
-            tf.keras.layers.GlobalAveragePooling2D(),
-            tf.keras.layers.Dropout(0.35),
-            tf.keras.layers.Dense(128, activation="relu"),
-            tf.keras.layers.Dropout(0.25),
-            tf.keras.layers.Dense(num_classes, activation="softmax"),
-        ]
+    base_model = tf.keras.applications.MobileNetV2(
+        input_shape=input_shape,
+        include_top=False,
+        weights="imagenet",
+        name="mobilenetv2_base",
     )
+    base_model.trainable = False
+
+    inputs = tf.keras.Input(shape=input_shape)
+    x = data_augmentation(inputs)
+    x = tf.keras.layers.Rescaling(1.0 / 127.5, offset=-1.0, name="mobilenetv2_preprocess")(x)
+    x = base_model(x, training=False)
+    x = tf.keras.layers.GlobalAveragePooling2D(name="global_average_pooling")(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.4)(x)
+    x = tf.keras.layers.Dense(
+        256,
+        activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(0.0005),
+    )(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    outputs = tf.keras.layers.Dense(num_classes, activation="softmax", name="predictions")(x)
+    model = tf.keras.Model(inputs, outputs, name="food_mobilenetv2")
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-        loss="categorical_crossentropy",
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),
+        loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.05),
         metrics=["accuracy"],
     )
-    return model
+    return model, base_model
+
+
+def compile_for_fine_tuning(model, base_model, fine_tune_at, learning_rate):
+    base_model.trainable = True
+
+    for layer in base_model.layers[:fine_tune_at]:
+        layer.trainable = False
+
+    for layer in base_model.layers:
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
+            layer.trainable = False
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+        loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.05),
+        metrics=["accuracy"],
+    )
+
+
+def merge_histories(*histories):
+    merged = {}
+    for history in histories:
+        for key, values in history.history.items():
+            merged.setdefault(key, []).extend(values)
+    return merged
 
 
 def save_classification_metrics(class_names, true_labels, predicted_labels, output_path):
@@ -94,13 +124,19 @@ def save_classification_metrics(class_names, true_labels, predicted_labels, outp
         writer.writeheader()
         writer.writerows(rows)
 
+    return rows
+
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train and evaluate a 5-class food CNN.")
+    parser = argparse.ArgumentParser(description="Train and evaluate a 5-class food MobileNetV2 classifier.")
     parser.add_argument("--data-dir", default="food-5", help="Dataset folder with train/test subfolders.")
-    parser.add_argument("--epochs", type=int, default=15)
+    parser.add_argument("--epochs", type=int, default=18, help="Frozen-base training epochs.")
+    parser.add_argument("--fine-tune-epochs", type=int, default=12, help="Fine-tuning epochs after the head is trained.")
+    parser.add_argument("--fine-tune-at", type=int, default=100, help="MobileNetV2 layer index to start fine-tuning.")
+    parser.add_argument("--fine-tune-lr", type=float, default=0.00001)
+    parser.add_argument("--target-recall", type=float, default=0.75, help="Minimum desired recall for each class.")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--image-size", type=int, default=160)
+    parser.add_argument("--image-size", type=int, default=224)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", default="outputs")
     return parser.parse_args()
@@ -119,7 +155,7 @@ def main():
         seed=args.seed,
     )
 
-    model = build_cnn(
+    model, base_model = build_mobilenetv2(
         input_shape=(args.image_size, args.image_size, 3),
         num_classes=len(class_names),
     )
@@ -134,18 +170,40 @@ def main():
         ),
         tf.keras.callbacks.EarlyStopping(
             monitor="val_loss",
-            patience=4,
+            patience=5,
             restore_best_weights=True,
         ),
         tf.keras.callbacks.CSVLogger(output_dir / "training_log.csv"),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss",
+            factor=0.3,
+            patience=2,
+            min_lr=0.000001,
+        ),
     ]
 
-    history = model.fit(
+    head_history = model.fit(
         train_ds,
         validation_data=test_ds,
         epochs=args.epochs,
         callbacks=callbacks,
     )
+
+    fine_tune_history = None
+    if args.fine_tune_epochs > 0:
+        compile_for_fine_tuning(
+            model,
+            base_model,
+            fine_tune_at=args.fine_tune_at,
+            learning_rate=args.fine_tune_lr,
+        )
+        fine_tune_history = model.fit(
+            train_ds,
+            validation_data=test_ds,
+            epochs=args.epochs + args.fine_tune_epochs,
+            initial_epoch=len(head_history.history["loss"]),
+            callbacks=callbacks,
+        )
 
     test_loss, test_accuracy = model.evaluate(test_ds, verbose=1)
     print(f"Test loss: {test_loss:.4f}")
@@ -162,15 +220,29 @@ def main():
         json.dump(class_names, file, indent=2)
 
     model.save(output_dir / "final_model.keras")
-    plot_training_history(history, output_dir / "training_history.png")
+    if fine_tune_history:
+        plot_training_history(merge_histories(head_history, fine_tune_history), output_dir / "training_history.png")
+    else:
+        plot_training_history(head_history, output_dir / "training_history.png")
     plot_confusion_matrix(confusion_matrix, class_names, output_dir / "confusion_matrix.png")
     np.savetxt(output_dir / "confusion_matrix.csv", confusion_matrix, fmt="%d", delimiter=",")
-    save_classification_metrics(
+    metrics_rows = save_classification_metrics(
         class_names,
         true_labels,
         predicted_labels,
         output_dir / "classification_metrics.csv",
     )
+
+    below_target = [
+        row for row in metrics_rows
+        if row["class"] != "overall_accuracy" and row["recall"] < args.target_recall
+    ]
+    if below_target:
+        print(f"Classes below {args.target_recall:.0%} recall:")
+        for row in below_target:
+            print(f"- {row['class']}: {row['recall']:.2%}")
+    else:
+        print(f"All classes reached at least {args.target_recall:.0%} recall.")
 
     print(f"Saved model and evaluation files in: {output_dir}")
 

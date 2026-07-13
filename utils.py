@@ -56,18 +56,19 @@ def collect_predictions(model, dataset):
 def plot_training_history(history, output_path):
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    history_data = history.history if hasattr(history, "history") else history
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
-    axes[0].plot(history.history["accuracy"], label="Train")
-    axes[0].plot(history.history["val_accuracy"], label="Validation")
+    axes[0].plot(history_data["accuracy"], label="Train")
+    axes[0].plot(history_data["val_accuracy"], label="Validation")
     axes[0].set_title("Accuracy")
     axes[0].set_xlabel("Epoch")
     axes[0].set_ylabel("Accuracy")
     axes[0].legend()
 
-    axes[1].plot(history.history["loss"], label="Train")
-    axes[1].plot(history.history["val_loss"], label="Validation")
+    axes[1].plot(history_data["loss"], label="Train")
+    axes[1].plot(history_data["val_loss"], label="Validation")
     axes[1].set_title("Loss")
     axes[1].set_xlabel("Epoch")
     axes[1].set_ylabel("Loss")

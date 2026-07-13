@@ -14,3 +14,6 @@ outputs/*
 *.log
 !outputs/final_model.keras
 !outputs/class_names.json
+
+uploads/
+outputs/predictions.db

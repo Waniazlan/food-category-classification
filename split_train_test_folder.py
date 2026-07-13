@@ -4,11 +4,11 @@ from pathlib import Path
 
 
 DEFAULT_CLASSES = [
-    "apple_pie",
+    "sushi",
     "cheesecake",
-    "chicken_curry",
+    "ice_cream",
     "fried_rice",
-    "pizza",
+    "hamburger",
 ]
 
 
@@ -50,8 +50,13 @@ def prepare_subset(food101_dir, output_dir, classes, train_limit, test_limit):
     train_map = read_split_file(meta_dir / "train.txt")
     test_map = read_split_file(meta_dir / "test.txt")
 
+    selected_classes = set(classes)
     for split in ("train", "test"):
-        (output_dir / split).mkdir(parents=True, exist_ok=True)
+        split_dir = output_dir / split
+        split_dir.mkdir(parents=True, exist_ok=True)
+        for class_dir in split_dir.iterdir():
+            if class_dir.is_dir() and class_dir.name not in selected_classes:
+                shutil.rmtree(class_dir)
 
     for class_name in classes:
         if class_name not in train_map or class_name not in test_map:
@@ -91,13 +96,13 @@ def parse_args():
     parser.add_argument(
         "--train-limit",
         type=int,
-        default=300,
+        default=0,
         help="Maximum training images per class. Use 0 for all available training images.",
     )
     parser.add_argument(
         "--test-limit",
         type=int,
-        default=100,
+        default=0,
         help="Maximum test images per class. Use 0 for all available test images.",
     )
     return parser.parse_args()

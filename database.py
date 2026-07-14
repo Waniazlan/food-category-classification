@@ -110,3 +110,24 @@ def fetch_predictions(db_path=DATABASE_PATH):
         ).fetchall()
 
     return [dict(row) for row in rows]
+
+
+def clear_predictions(db_path=DATABASE_PATH):
+    init_database(db_path)
+
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute("SELECT uploaded_image_path FROM predictions").fetchall()
+        
+        # Delete image files from filesystem
+        for row in rows:
+            image_path = Path(row["uploaded_image_path"])
+            if image_path.exists():
+                image_path.unlink()
+        
+        # Delete database records
+        connection.execute("DELETE FROM predictions")
+        connection.execute("DELETE FROM sqlite_sequence WHERE name='predictions'")
+        connection.commit()
+
+    return True

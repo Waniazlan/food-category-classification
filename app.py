@@ -11,6 +11,7 @@ import tensorflow as tf
 from PIL import Image
 
 from database import (
+    clear_predictions,
     fetch_predictions,
     init_database,
     save_prediction,
@@ -136,27 +137,31 @@ def reset_upload():
 def render_styles():
     st.markdown(
         """
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <style>
             :root {
-                --bg: #f4f7f2;
+                --bg: #faf8f5;
                 --surface: #ffffff;
-                --surface-soft: #eef5ef;
-                --ink: #17211c;
-                --muted: #66736d;
-                --line: #dbe4dd;
-                --accent: #0f7b63;
-                --accent-dark: #073f35;
-                --accent-soft: #dff2ea;
-                --yellow: #d69b17;
-                --graybar: #9aa5a1;
-                --shadow: 0 16px 40px rgba(25, 45, 36, 0.10);
-                --shadow-soft: 0 8px 22px rgba(25, 45, 36, 0.08);
+                --surface-soft: #f4f0ea;
+                --ink: #2b2118;
+                --muted: #8a7566;
+                --line: #ece4da;
+                --accent: #ff6b4a;
+                --accent-dark: #c0432a;
+                --accent-soft: #ffe7dc;
+                --shadow: 0 18px 40px rgba(43, 33, 24, 0.10);
+                --shadow-soft: 0 8px 20px rgba(43, 33, 24, 0.07);
+            }
+
+            html, body, [class*="css"] {
+                font-family: 'Plus Jakarta Sans', sans-serif;
             }
 
             .stApp {
                 background:
-                    radial-gradient(circle at 12% 8%, rgba(15, 123, 99, 0.12), transparent 24rem),
-                    linear-gradient(180deg, #fbfcf7 0%, var(--bg) 100%);
+                    radial-gradient(circle at 14% 4%, rgba(255, 107, 74, 0.08), transparent 30rem),
+                    var(--bg);
                 color: var(--ink);
             }
 
@@ -172,8 +177,9 @@ def render_styles():
                 align-items: center;
                 color: var(--ink);
                 display: flex;
-                font-size: 1.08rem;
-                font-weight: 850;
+                font-family: 'Baloo 2', sans-serif;
+                font-size: 1.15rem;
+                font-weight: 800;
                 gap: 0.65rem;
                 letter-spacing: 0;
                 min-height: 3rem;
@@ -181,84 +187,122 @@ def render_styles():
 
             .app-mark {
                 align-items: center;
-                background: linear-gradient(135deg, var(--accent), #58a96f);
-                border-radius: 10px;
+                background: var(--accent);
+                border-radius: 12px;
                 box-shadow: var(--shadow-soft);
                 color: #fff;
                 display: inline-flex;
+                font-family: 'Baloo 2', sans-serif;
                 font-size: 0.9rem;
-                font-weight: 900;
-                height: 2.15rem;
+                font-weight: 800;
+                height: 2.25rem;
                 justify-content: center;
-                width: 2.15rem;
+                width: 2.25rem;
             }
 
             .hero {
-                padding: 1.35rem 0 0.9rem;
+                background: var(--accent);
+                border-radius: 28px;
+                box-shadow: var(--shadow);
+                margin: 1.1rem 0 1.4rem;
+                overflow: hidden;
+                padding: 2.1rem 2.2rem 2rem;
+                position: relative;
+            }
+
+            .hero::after {
+                content: "";
+                position: absolute;
+                top: -70px;
+                right: -70px;
+                width: 230px;
+                height: 230px;
+                background: rgba(255, 255, 255, 0.16);
+                border-radius: 50%;
             }
 
             .eyebrow {
-                color: var(--accent);
-                font-size: 0.78rem;
-                font-weight: 800;
-                letter-spacing: 0.08em;
-                margin-bottom: 0.35rem;
+                background: rgba(255, 255, 255, 0.22);
+                border-radius: 999px;
+                color: #fff;
+                display: inline-block;
+                font-size: 0.76rem;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.9rem;
+                padding: 0.32rem 0.8rem;
+                position: relative;
                 text-transform: uppercase;
+                z-index: 1;
             }
 
             .hero h1 {
-                color: var(--ink);
-                font-size: clamp(2rem, 4vw, 3.4rem);
-                font-weight: 850;
+                color: #fff;
+                font-family: 'Baloo 2', sans-serif;
+                font-size: clamp(2rem, 4vw, 3.2rem);
+                font-weight: 700;
                 letter-spacing: 0;
-                line-height: 1.04;
+                line-height: 1.08;
                 margin: 0;
+                max-width: 640px;
+                position: relative;
+                z-index: 1;
             }
 
             .hero p {
-                color: var(--muted);
+                color: rgba(255, 255, 255, 0.92);
                 font-size: 1rem;
                 line-height: 1.6;
-                margin: 0.75rem 0 0;
-                max-width: 720px;
+                margin: 0.8rem 0 0;
+                max-width: 640px;
+                position: relative;
+                z-index: 1;
             }
 
             .badge-row {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 0.55rem;
-                margin: 0.7rem 0 0.2rem;
+                margin: 1.3rem 0 0.3rem;
             }
 
             .badge {
-                background: rgba(255, 255, 255, 0.78);
-                border: 1px solid rgba(219, 228, 221, 0.86);
+                background: var(--surface);
+                border: 1px solid var(--line);
                 border-radius: 999px;
+                box-shadow: var(--shadow-soft);
                 color: var(--muted);
                 font-size: 0.78rem;
-                font-weight: 750;
-                padding: 0.34rem 0.72rem;
+                font-weight: 700;
+                padding: 0.36rem 0.78rem;
             }
 
             .class-strip {
                 display: grid;
-                gap: 0.8rem;
+                gap: 1rem;
                 grid-template-columns: repeat(5, minmax(0, 1fr));
-                margin: 1.15rem 0 1.45rem;
+                margin: 1.3rem 0 1.6rem;
             }
 
             .class-card {
                 background: var(--surface);
-                border-radius: 20px;
+                border-radius: 22px;
                 box-shadow: var(--shadow-soft);
                 min-width: 0;
-                padding: 0.65rem 0.65rem 0.75rem;
+                padding: 0.7rem 0.7rem 0.85rem;
+                transition: transform 180ms ease, box-shadow 180ms ease;
+            }
+
+            .class-card:hover {
+                box-shadow: var(--shadow);
+                transform: translateY(-4px);
             }
 
             .class-card img {
                 aspect-ratio: 1 / 1;
-                border-radius: 18px;
+                border-radius: 16px;
                 display: block;
+                filter: drop-shadow(0 8px 10px rgba(43, 33, 24, 0.16));
                 height: auto;
                 object-fit: cover;
                 width: 100%;
@@ -267,59 +311,62 @@ def render_styles():
             .class-card span {
                 color: var(--ink);
                 display: block;
-                font-size: 0.86rem;
-                font-weight: 800;
+                font-family: 'Baloo 2', sans-serif;
+                font-size: 0.9rem;
+                font-weight: 700;
                 overflow: hidden;
-                padding: 0.78rem 0.2rem 0;
+                padding: 0.85rem 0.2rem 0;
                 text-align: center;
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
 
             .panel {
-                background: rgba(255, 255, 255, 0.92);
-                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.94);
+                border-radius: 18px;
                 box-shadow: var(--shadow);
-                padding: 1.05rem;
+                padding: 1.1rem;
             }
 
             .panel-title {
                 color: var(--ink);
-                font-size: 1rem;
-                font-weight: 850;
+                font-family: 'Baloo 2', sans-serif;
+                font-size: 1.05rem;
+                font-weight: 700;
                 margin: 0 0 0.85rem;
             }
 
             [data-testid="stFileUploader"] {
                 background: var(--surface);
-                border: 1.5px dashed #aec2b8;
-                border-radius: 12px;
-                box-shadow: inset 0 0 0 9999px rgba(15, 123, 99, 0.018);
+                border: 1.5px dashed #f0b7a4;
+                border-radius: 16px;
+                box-shadow: inset 0 0 0 9999px rgba(255, 107, 74, 0.02);
                 padding: 1rem;
                 transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
             }
 
             [data-testid="stFileUploader"]:hover {
                 border-color: var(--accent);
-                box-shadow: inset 0 0 0 9999px rgba(15, 123, 99, 0.05), var(--shadow-soft);
+                box-shadow: inset 0 0 0 9999px rgba(255, 107, 74, 0.06), var(--shadow-soft);
                 transform: translateY(-1px);
             }
 
             .preview-shell img {
-                border-radius: 10px;
+                border-radius: 16px;
                 box-shadow: var(--shadow-soft);
             }
 
             .result-panel {
-                background: linear-gradient(135deg, #0a2d27, var(--accent-dark));
-                border-radius: 12px;
+                background: var(--accent-dark);
+                border-radius: 18px;
                 box-shadow: var(--shadow);
                 color: #fff;
-                padding: 1.25rem;
+                padding: 1.3rem 1.3rem 1.35rem;
+                margin-bottom: 1.2rem;
             }
 
             .result-panel .label {
-                color: rgba(255, 255, 255, 0.68);
+                color: rgba(255, 255, 255, 0.7);
                 font-size: 0.76rem;
                 font-weight: 800;
                 letter-spacing: 0.08em;
@@ -328,22 +375,23 @@ def render_styles():
 
             .result-panel h2 {
                 color: #fff;
-                font-size: clamp(2rem, 4vw, 3.25rem);
-                font-weight: 900;
+                font-family: 'Baloo 2', sans-serif;
+                font-size: clamp(2rem, 4vw, 3.1rem);
+                font-weight: 700;
                 letter-spacing: 0;
-                line-height: 1.02;
-                margin: 0.28rem 0 0.45rem;
+                line-height: 1.05;
+                margin: 0.3rem 0 0.45rem;
             }
 
             .result-panel p {
-                color: rgba(255, 255, 255, 0.74);
+                color: rgba(255, 255, 255, 0.78);
                 margin: 0;
             }
 
             .empty-state {
                 align-items: center;
                 background: var(--surface);
-                border-radius: 12px;
+                border-radius: 18px;
                 box-shadow: var(--shadow-soft);
                 color: var(--muted);
                 display: flex;
@@ -354,14 +402,15 @@ def render_styles():
             .empty-state strong {
                 color: var(--ink);
                 display: block;
-                font-size: 1.08rem;
+                font-family: 'Baloo 2', sans-serif;
+                font-size: 1.1rem;
                 margin-bottom: 0.32rem;
             }
 
             .probability-list {
                 display: grid;
                 gap: 0.85rem;
-                margin: 1.05rem 0;
+                margin: 1.1rem 0;
             }
 
             .probability-label {
@@ -375,17 +424,17 @@ def render_styles():
             .probability-label span {
                 color: var(--ink);
                 font-size: 0.94rem;
-                font-weight: 780;
+                font-weight: 750;
             }
 
             .probability-label strong {
                 color: var(--accent-dark);
                 font-size: 0.88rem;
-                font-weight: 850;
+                font-weight: 800;
             }
 
             .probability-track {
-                background: #e4ebe6;
+                background: var(--line);
                 border-radius: 999px;
                 height: 0.72rem;
                 overflow: hidden;
@@ -393,13 +442,14 @@ def render_styles():
 
             .probability-fill {
                 animation: fillBar 780ms cubic-bezier(.2, .8, .2, 1) both;
+                background: var(--accent);
                 border-radius: 999px;
                 height: 100%;
             }
 
-            .probability-fill.high { background: linear-gradient(90deg, #0f7b63, #5ebd75); }
-            .probability-fill.medium { background: linear-gradient(90deg, #d69b17, #f1ca5a); }
-            .probability-fill.low { background: linear-gradient(90deg, #87918d, #b5bfba); }
+            .probability-fill.high { opacity: 1; }
+            .probability-fill.medium { opacity: 0.62; }
+            .probability-fill.low { opacity: 0.32; }
 
             @keyframes fillBar {
                 from { width: 0; }
@@ -407,19 +457,42 @@ def render_styles():
 
             .explanation-box {
                 background: var(--surface-soft);
-                border-radius: 10px;
+                border-radius: 14px;
                 color: var(--ink);
                 line-height: 1.55;
                 margin-top: 0.85rem;
-                padding: 0.9rem 1rem;
+                padding: 0.95rem 1.05rem;
             }
 
             .history-card {
                 background: var(--surface);
-                border-radius: 12px;
+                border-radius: 18px;
                 box-shadow: var(--shadow-soft);
                 margin-bottom: 0.8rem;
-                padding: 0.8rem;
+                padding: 0.85rem;
+                transition: box-shadow 180ms ease, transform 180ms ease;
+            }
+
+            .history-card:hover {
+                box-shadow: var(--shadow);
+                transform: translateY(-2px);
+            }
+
+            .history-image-shell img {
+                width: 100%;
+                height: auto;
+                border-radius: 14px;
+                object-fit: cover;
+                display: block;
+                background: transparent;
+                filter: drop-shadow(0 6px 8px rgba(43, 33, 24, 0.14));
+            }
+
+            .history-grid {
+                display: grid;
+                grid-template-columns: 110px 1fr 120px;
+                gap: 1rem;
+                align-items: center;
             }
 
             .history-meta {
@@ -428,16 +501,39 @@ def render_styles():
                 line-height: 1.45;
             }
 
+            .history-image-label {
+                display: block;
+                text-align: left;
+                margin-top: 0.45rem;
+                color: var(--ink);
+                font-family: 'Baloo 2', sans-serif;
+                font-weight: 700;
+            }
+
+            .history-score {
+                background: var(--surface-soft);
+                border-radius: 14px;
+                padding: 0.55rem 0.7rem;
+                text-align: center;
+            }
+
+            .history-score .value {
+                color: var(--accent-dark);
+                font-weight: 800;
+                font-size: 1.05rem;
+            }
+
             .history-title {
                 color: var(--ink);
+                font-family: 'Baloo 2', sans-serif;
                 font-size: 1rem;
-                font-weight: 850;
+                font-weight: 700;
                 margin-bottom: 0.25rem;
             }
 
             .stButton > button {
-                border-radius: 10px;
-                font-weight: 800;
+                border-radius: 14px;
+                font-weight: 700;
                 min-height: 2.8rem;
                 padding: 0.55rem 1rem;
                 transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
@@ -450,63 +546,63 @@ def render_styles():
             }
 
             .stButton > button[kind="primary"] {
-                background: #b7352d;
-                border-color: #b7352d;
+                background: var(--accent);
+                border-color: var(--accent);
                 color: #ffffff;
             }
 
             .stButton > button[data-testid="stBaseButton-primary"] {
-                background: #b7352d;
-                border-color: #b7352d;
+                background: var(--accent);
+                border-color: var(--accent);
                 color: #ffffff;
             }
 
             .stButton > button[kind="primary"]:hover {
-                background: #9f2d26;
-                border-color: #9f2d26;
+                background: var(--accent-dark);
+                border-color: var(--accent-dark);
                 color: #ffffff;
             }
 
             .stButton > button[data-testid="stBaseButton-primary"]:hover {
-                background: #9f2d26;
-                border-color: #9f2d26;
+                background: var(--accent-dark);
+                border-color: var(--accent-dark);
                 color: #ffffff;
             }
 
             .stButton > button[kind="secondary"] {
                 background: #ffffff;
-                border-color: #cbd8d1;
+                border-color: var(--line);
                 color: var(--ink);
             }
 
             .stButton > button[data-testid="stBaseButton-secondary"] {
                 background: #ffffff;
-                border-color: #cbd8d1;
+                border-color: var(--line);
                 color: var(--ink);
             }
 
             .stButton > button[kind="secondary"]:hover {
-                background: #edf5f0;
+                background: var(--accent-soft);
                 border-color: var(--accent);
                 color: var(--accent-dark);
             }
 
             .stButton > button[data-testid="stBaseButton-secondary"]:hover {
-                background: #edf5f0;
+                background: var(--accent-soft);
                 border-color: var(--accent);
                 color: var(--accent-dark);
             }
 
             div[data-testid="stMetric"] {
                 background: var(--surface);
-                border-radius: 10px;
+                border-radius: 14px;
                 box-shadow: var(--shadow-soft);
                 padding: 0.7rem 0.85rem;
             }
 
             [data-testid="stMetricValue"] {
                 color: var(--accent-dark);
-                font-weight: 900;
+                font-weight: 800;
             }
 
             @media (max-width: 860px) {
@@ -523,6 +619,10 @@ def render_styles():
                 .block-container {
                     padding-left: 1rem;
                     padding-right: 1rem;
+                }
+
+                .hero {
+                    padding: 1.6rem 1.4rem 1.5rem;
                 }
 
                 .class-strip {
@@ -575,12 +675,29 @@ def render_navbar():
 
 def render_class_cards(class_names, input_width, input_height):
     cards = []
+    assets_dir = Path("assets/classes")
     for class_name in class_display_order(class_names):
-        image_path = representative_image(class_name)
+        # Prefer cleaned/edited class images in assets, fallback to representative image
+        asset_image = assets_dir / f"{class_name}.png"
+        if asset_image.exists():
+            image_path = asset_image
+        else:
+            image_path = representative_image(class_name)
+
         image_uri = image_to_data_uri(image_path) if image_path else ""
-        image_markup = f'<img src="{image_uri}" alt="{format_label(class_name)}">' if image_uri else ""
+        image_markup = (
+            f'<img src="{image_uri}" alt="{format_label(class_name)}" title="{format_label(class_name)}">'
+            if image_uri
+            else ""
+        )
+
         cards.append(
-            f'<div class="class-card">{image_markup}<span>{format_label(class_name)}</span></div>'
+            (
+                '<div class="class-card" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;">'
+                f'{image_markup}'
+                f'<span>{format_label(class_name)}</span>'
+                '</div>'
+            )
         )
 
     st.markdown(
@@ -658,15 +775,11 @@ def render_result(result):
             unsafe_allow_html=True,
         )
 
-    st.caption(f'Saved prediction #{result["saved_prediction_id"]} to the prediction database.')
-    st.caption("Saved uploads are kept for prediction history only and are not used as training data.")
-
-
 def render_classify_page(model, class_names, input_width, input_height):
     st.markdown(
         """
         <section class="hero">
-            <div class="eyebrow">MobileNetV2 Food Recognition</div>
+            <div class="eyebrow">Food Recognition</div>
             <h1>Classify a food photo</h1>
             <p>
                 Upload one image and the trained model will identify whether it looks like
@@ -798,40 +911,47 @@ def filtered_history_rows(class_names):
 
 def render_history_card(row):
     image_path = Path(row["uploaded_image_path"])
-    image_col, detail_col, score_col = st.columns([1.1, 3.2, 1.1])
+    image_uri = ""
+    if image_path.exists():
+        image_uri = image_to_data_uri(image_path) or ""
 
-    with image_col:
-        if image_path.exists():
-            st.image(str(image_path), use_container_width=True)
-        else:
-            st.caption("Image missing")
+    label = format_label(row["predicted_class"])
+    datetime = row.get("prediction_datetime", "")
+    uploaded_path = row.get("uploaded_image_path", "")
+    confidence_pct = f"{row.get('confidence_score', 0) * 100:.2f}%"
 
-    with detail_col:
-        st.markdown(
-            f"""
-            <div class="history-title">{format_label(row["predicted_class"])}</div>
-            <div class="history-meta">
-                Saved at {row["prediction_datetime"]}<br>
-                {row["uploaded_image_path"]}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    inner_html = (
+        '<div class="history-grid">'
+        f'<div>'
+        f'{f"<div class=\"history-image-shell\"><img src=\"{image_uri}\" alt=\"{label}\"></div>" if image_uri else "<div class=\"history-image-shell\">Image missing</div>"}'
+        f'<span class="history-image-label">{label}</span>'
+        '</div>'
+        f'<div>'
+        f'<div class="history-title">{label}</div>'
+        f'<div class="history-meta">Saved at {datetime}</div>'
+        '</div>'
+        f'<div><div class="history-score"><div class="value">{confidence_pct}</div><div style="font-size:0.78rem;color:var(--muted);margin-top:0.18rem;">Confidence</div></div></div>'
+        '</div>'
+    )
 
-    with score_col:
-        st.metric("Confidence", f'{row["confidence_score"] * 100:.2f}%')
+    # Wrapper div + inner content are rendered in a single st.markdown call so
+    # the .history-card div actually wraps its contents in the DOM (Streamlit
+    # renders every st.markdown() call as its own isolated element, so
+    # splitting the opening/closing tags across calls produced an empty,
+    # separately-styled "ghost card" above each real card).
+    st.markdown(f'<div class="history-card">{inner_html}</div>', unsafe_allow_html=True)
 
 
 def render_history_page(class_names):
     st.markdown(
         """
         <section class="hero">
-            <div class="eyebrow">Prediction Database</div>
             <h1>History</h1>
             <p>
                 Browse saved predictions from the local SQLite database. These records are
                 audit/history data only, not training data.
             </p>
+            <div class="hero-emoji"></div>
         </section>
         """,
         unsafe_allow_html=True,
@@ -848,6 +968,41 @@ def render_history_page(class_names):
         st.radio("Sort by date", ["Newest first", "Oldest first"], horizontal=True, key="history_sort")
 
     rows = filtered_history_rows(class_names)
+    all_rows = fetch_predictions()
+
+    if "confirm_delete_all" not in st.session_state:
+        st.session_state.confirm_delete_all = False
+
+    if all_rows:
+        if st.session_state.get("confirm_delete_all"):
+            st.warning("This will permanently delete every saved prediction record from the SQLite database. This cannot be undone.")
+            confirm_col, cancel_col = st.columns(2)
+            with confirm_col:
+                if st.button(
+                    "Confirm Delete All",
+                    type="primary",
+                    use_container_width=True,
+                    help="Permanently delete all prediction history.",
+                ):
+                    clear_predictions()
+                    st.session_state.confirm_delete_all = False
+                    st.session_state.history_page = 1
+                    st.success("Prediction history cleared.")
+                    st.rerun()
+            with cancel_col:
+                if st.button("Cancel", use_container_width=True, help="Cancel deleting all history."):
+                    st.session_state.confirm_delete_all = False
+                    st.rerun()
+        else:
+            if st.button(
+                "Delete All History",
+                type="secondary",
+                use_container_width=True,
+                help="Permanently remove every saved prediction record.",
+            ):
+                st.session_state.confirm_delete_all = True
+                st.rerun()
+
     with count_col:
         st.metric("Records", len(rows))
 
@@ -873,10 +1028,7 @@ def render_history_page(class_names):
     end = start + PAGE_SIZE
 
     for row in rows[start:end]:
-        with st.container():
-            st.markdown('<div class="history-card">', unsafe_allow_html=True)
-            render_history_card(row)
-            st.markdown("</div>", unsafe_allow_html=True)
+        render_history_card(row)
 
     prev_col, page_col, next_col = st.columns([1, 2, 1])
     with prev_col:
@@ -890,7 +1042,7 @@ def render_history_page(class_names):
             st.rerun()
     with page_col:
         st.markdown(
-            f"<div style='text-align:center;color:#66736d;font-weight:750;'>Page {current_page} of {total_pages}</div>",
+            f"<div style='text-align:center;color:#8a7566;font-weight:750;'>Page {current_page} of {total_pages}</div>",
             unsafe_allow_html=True,
         )
     with next_col:
@@ -902,6 +1054,11 @@ def render_history_page(class_names):
         ):
             st.session_state.history_page = current_page + 1
             st.rerun()
+
+    # if st.button("Clear all predictions", use_container_width=True):
+    #     clear_predictions()
+    #     st.success("All predictions cleared.")
+    #     st.rerun()
 
 
 st.set_page_config(
